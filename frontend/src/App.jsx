@@ -11,42 +11,6 @@ const SERVICE_CONFIG = {
     placeholder: '12-digit Aadhaar (e.g. 1234 5678 9012)',
     pattern: '[0-9]{12}',
     hint: 'Enter the 12-digit number from your Aadhaar card'
-  },
-  'PAN': {
-    label: 'PAN Card Number',
-    placeholder: '10-character PAN (e.g. ABCDE1234F)',
-    pattern: '[A-Z]{5}[0-9]{4}[A-Z]{1}',
-    hint: 'Permanent Account Number — 5 letters, 4 digits, 1 letter'
-  },
-  'PATTA': {
-    label: 'Patta / Survey Number',
-    placeholder: 'Enter your Survey or Patta number',
-    pattern: null,
-    hint: 'Land survey or patta document registration number'
-  },
-  'EB Bill': {
-    label: 'EB Consumer Number',
-    placeholder: 'Your electricity consumer account number',
-    pattern: null,
-    hint: 'Found on the top section of your EB electricity bill'
-  },
-  'Money Transfer': {
-    label: 'Bank Account & IFSC Code',
-    placeholder: 'A/C: 1234567890 | IFSC: SBIN0001234',
-    pattern: null,
-    hint: "Recipient's bank account number and bank IFSC code"
-  },
-  'Insurance': {
-    label: 'Policy / Vehicle Number',
-    placeholder: 'Enter policy number or vehicle registration',
-    pattern: null,
-    hint: 'Vehicle registration number or insurance policy number'
-  },
-  'Voter ID': {
-    label: 'EPIC / Voter ID Number',
-    placeholder: '10-character Voter ID (e.g. ABC1234567)',
-    pattern: '[A-Z]{3}[0-9]{7}',
-    hint: 'Electoral Photo Identity Card — 3 letters + 7 digits'
   }
 };
 
@@ -194,25 +158,49 @@ function ChatModule({ chats, isAdmin, fetchAll, customerName }) {
 //  CUSTOMER WELCOME — registration gate for sender page
 // ═════════════════════════════════════════════════════════════
 function CustomerWelcome({ onRegister }) {
-  const [name, setName] = useState('');
-  const [number, setNumber] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setMessage('');
     setLoading(true);
+
+    const endpoint = isSignup ? '/auth/signup' : '/auth/login';
+
     try {
-      await fetch(`${API_BASE}/customers`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customer_name: name, contact_number: number })
+        body: JSON.stringify({ email, password })
       });
-    } catch { /* still save locally even if API fails */ }
+      const data = await res.json();
 
-    const customer = { name, number };
-    localStorage.setItem('ak_customer', JSON.stringify(customer));
-    setLoading(false);
-    onRegister(customer);
+      if (res.ok && data.success) {
+        if (isSignup) {
+          setMessage(data.message || 'Signup successful! You can now log in.');
+          setIsSignup(false); // Switch to login after signup
+          setPassword('');
+        } else {
+          // Logged in successfully
+          const customer = { name: data.user.email, email: data.user.email, number: 'N/A' };
+          localStorage.setItem('ak_customer', JSON.stringify(customer));
+          onRegister(customer);
+        }
+      } else {
+        setError(data.error || 'Authentication failed');
+      }
+    } catch {
+      setError('Cannot reach server. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -222,38 +210,117 @@ function CustomerWelcome({ onRegister }) {
         <div className="welcome-shape welcome-shape--2" />
       </div>
 
-      <div className="welcome-card">
+      <div className="welcome-card" style={{ maxWidth: '450px' }}>
         <div className="welcome-icon">🏛️</div>
         <h1 className="welcome-title">Welcome to <span>AK E-Services</span></h1>
-        <p className="welcome-subtitle">Please enter your details to continue</p>
+        <p className="welcome-subtitle">
+          {isSignup ? 'Create your account to continue' : 'Sign in to access your dashboard'}
+        </p>
+
+        {/* Toggle Tabs */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <button
+            type="button"
+            onClick={() => { setIsSignup(false); setError(''); setMessage(''); }}
+            style={{
+              flex: 1,
+              padding: '10px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: !isSignup ? '#ff6b35' : '#eaeaea',
+              color: !isSignup ? '#fff' : '#333',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: '0.2s'
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setIsSignup(true); setError(''); setMessage(''); }}
+            style={{
+              flex: 1,
+              padding: '10px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: isSignup ? '#ff6b35' : '#eaeaea',
+              color: isSignup ? '#fff' : '#333',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: '0.2s'
+            }}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        {error && (
+          <div className="login-error" style={{ marginBottom: '15px', color: 'red', textAlign: 'center' }}>
+            <span>⚠️</span> {error}
+          </div>
+        )}
+
+        {message && (
+          <div style={{
+            backgroundColor: 'rgba(74, 222, 128, 0.1)',
+            border: '1px solid rgb(74, 222, 128)',
+            color: 'rgb(74, 222, 128)',
+            padding: '10px 14px',
+            borderRadius: '8px',
+            marginBottom: '15px',
+            fontSize: '0.85rem',
+            textAlign: 'center'
+          }}>
+            <span>✓</span> {message}
+          </div>
+        )}
 
         <form className="welcome-form" onSubmit={handleSubmit}>
           <div className="welcome-field">
-            <span className="welcome-field-icon">👤</span>
+            <span className="welcome-field-icon">✉️</span>
             <input
-              type="text"
+              type="email"
               className="input"
-              placeholder="Your Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              placeholder="Your Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               autoFocus
               required
             />
           </div>
-          <div className="welcome-field">
-            <span className="welcome-field-icon">📱</span>
+          <div className="welcome-field" style={{ position: 'relative' }}>
+            <span className="welcome-field-icon">🔒</span>
             <input
-              type="tel"
+              type={showPassword ? 'text' : 'password'}
               className="input"
-              placeholder="10-digit Mobile Number"
-              pattern="[0-9]{10}"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
+              placeholder="Your Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
+              style={{ width: '100%', paddingRight: '40px' }}
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                color: '#666'
+              }}
+              tabIndex={-1}
+            >
+              {showPassword ? '🙈' : '👁️'}
+            </button>
           </div>
-          <button type="submit" className="welcome-btn" disabled={loading}>
-            {loading ? <span className="login-spinner" /> : <>🚀 Continue</>}
+          <button type="submit" className="welcome-btn" disabled={loading} style={{ marginTop: '10px' }}>
+            {loading ? <span className="login-spinner" /> : <>{isSignup ? '🚀 Register' : '🔑 Sign In'}</>}
           </button>
         </form>
       </div>
@@ -449,30 +516,41 @@ function SenderDashboard({ customer, requests, chats, stats, fetchAll, onLogout 
 //  ADMIN LOGIN PAGE  —  premium glassmorphism login
 // ═════════════════════════════════════════════════════════════
 function AdminLoginPage({ onLogin }) {
-  const [username, setUsername] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setMessage('');
     setLoading(true);
 
+    const endpoint = isSignup ? '/auth/signup' : '/auth/login';
+
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ email, password })
       });
       const data = await res.json();
 
       if (res.ok && data.success) {
-        sessionStorage.setItem('ak_admin_auth', JSON.stringify({ username: data.user.username }));
-        onLogin(data.user);
+        if (isSignup) {
+          setMessage(data.message || 'Signup successful! You can now log in.');
+          setIsSignup(false); // Switch to login after signup
+          setPassword('');
+        } else {
+          sessionStorage.setItem('ak_admin_auth', JSON.stringify({ email: data.user.email }));
+          onLogin(data.user);
+        }
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.error || 'Authentication failed');
       }
     } catch {
       setError('Cannot reach server. Please try again.');
@@ -496,11 +574,11 @@ function AdminLoginPage({ onLogin }) {
           <div className="login-brand-content">
             <div className="login-brand-icon">👑</div>
             <h1 className="login-brand-title">AK <span>E-Services</span></h1>
-            <p className="login-brand-subtitle">Admin Control Center</p>
+            <p className="login-brand-subtitle">User & Admin Dashboard</p>
             <div className="login-brand-features">
               <div className="login-feature">
                 <span className="login-feature-icon">🛡️</span>
-                <span>Secure Access</span>
+                <span>Secure MongoDB Auth</span>
               </div>
               <div className="login-feature">
                 <span className="login-feature-icon">📊</span>
@@ -508,18 +586,56 @@ function AdminLoginPage({ onLogin }) {
               </div>
               <div className="login-feature">
                 <span className="login-feature-icon">💬</span>
-                <span>Customer Chat</span>
+                <span>Customer Chat Support</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right login form */}
+        {/* Right login/signup form */}
         <div className="login-form-panel">
           <form className="login-form" onSubmit={handleSubmit}>
             <div className="login-form-header">
-              <h2>Welcome Back</h2>
-              <p>Sign in to access the admin dashboard</p>
+              <h2>{isSignup ? 'Create Account' : 'Welcome Back'}</h2>
+              <p>{isSignup ? 'Register to get started' : 'Sign in to access your dashboard'}</p>
+            </div>
+
+            {/* Toggle Tabs */}
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              <button
+                type="button"
+                onClick={() => { setIsSignup(false); setError(''); setMessage(''); }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: !isSignup ? '#ff6b35' : '#eaeaea',
+                  color: !isSignup ? '#fff' : '#333',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  transition: '0.2s'
+                }}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsSignup(true); setError(''); setMessage(''); }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: isSignup ? '#ff6b35' : '#eaeaea',
+                  color: isSignup ? '#fff' : '#333',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  transition: '0.2s'
+                }}
+              >
+                Sign Up
+              </button>
             </div>
 
             {error && (
@@ -528,17 +644,31 @@ function AdminLoginPage({ onLogin }) {
               </div>
             )}
 
+            {message && (
+              <div style={{
+                backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                border: '1px solid rgb(74, 222, 128)',
+                color: 'rgb(74, 222, 128)',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                marginBottom: '15px',
+                fontSize: '0.85rem'
+              }}>
+                <span>✓</span> {message}
+              </div>
+            )}
+
             <div className="login-field">
-              <label htmlFor="login-username">Username</label>
+              <label htmlFor="login-email">Email Address</label>
               <div className="login-input-wrapper">
-                <span className="login-input-icon">👤</span>
+                <span className="login-input-icon">✉️</span>
                 <input
-                  id="login-username"
-                  type="text"
+                  id="login-email"
+                  type="email"
                   className="input"
-                  placeholder="Enter your username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   autoFocus
                   required
                 />
@@ -573,7 +703,7 @@ function AdminLoginPage({ onLogin }) {
               {loading ? (
                 <span className="login-spinner" />
               ) : (
-                <>🔐 Sign In</>
+                <>{isSignup ? '🚀 Create Account' : '🔐 Sign In'}</>
               )}
             </button>
 

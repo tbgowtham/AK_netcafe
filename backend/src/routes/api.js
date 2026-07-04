@@ -11,12 +11,13 @@ import {
   registerCustomer,
   getAllCustomers
 } from '../controllers/netcafeController.js';
-import { login } from '../controllers/authController.js';
+import { login, signup } from '../controllers/authController.js';
 
 const router = express.Router();
 
-// Auth route
+// Auth routes
 router.post('/auth/login', login);
+router.post('/auth/signup', signup);
 
 // Service Requests routes
 router.get('/requests', getAllRequests);

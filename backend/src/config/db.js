@@ -1,49 +1,30 @@
-import sqlite3 from 'sqlite3';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+dotenv.config();
 
-// Database path
-const dbDir = join(__dirname, '../../database');
-const dbPath = join(dbDir, 'database.db');
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/ak_netcafe';
 
-// Ensure database directory exists
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
+export let isMongoConnected = false;
 
-// Enable verbose mode for debugging
-const sqlite = sqlite3.verbose();
-
-// Open database connection
-const db = new sqlite.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error opening database:', err.message);
-  } else {
-    console.log('Connected to SQLite database at:', dbPath);
-    initializeDatabase();
-  }
-});
-
-function initializeDatabase() {
-  const schemaPath = join(__dirname, '../../database/schema.sql');
-  if (fs.existsSync(schemaPath)) {
-    const schema = fs.readFileSync(schemaPath, 'utf8');
-    
-    // We execute the schema statements to ensure tables and initial seed data exist
-    db.exec(schema, (err) => {
-      if (err) {
-        console.error('Error initializing database schema:', err.message);
-      } else {
-        console.log('Database initialized successfully.');
-      }
+export const initializeDatabase = async () => {
+  console.log('Connecting to MongoDB...');
+  try {
+    const connection = await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 3000 // Quick timeout so fallback registers fast
     });
-  } else {
-    console.warn('Schema file not found. Database might be empty.');
+    console.log(`Connected to MongoDB successfully: ${connection.connection.host}`);
+    isMongoConnected = true;
+    return connection;
+  } catch (error) {
+    console.warn('\n⚠️  MongoDB is not running or connection failed.');
+    console.warn(`Attempted Connection URI: ${MONGODB_URI}`);
+    console.warn('⚠️  Falling back to in-memory database for local testing.\n');
+    isMongoConnected = false;
+    return null;
   }
-}
+};
 
-export default db;
+export const getDatabase = () => {
+  return mongoose.connection;
+};

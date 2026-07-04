@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import apiRouter from './routes/api.js';
+import { initializeDatabase } from './config/db.js';
 
 dotenv.config();
 
@@ -28,7 +29,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong on the server!' });
 });
 
-app.listen(PORT, () => {
-  console.log(`AK Netcafe backend running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+// Initialize database and start the server
+initializeDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`AK Netcafe backend running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
+}).catch((err) => {
+  console.error('Failed to initialize database, shutting down server:', err);
+  process.exit(1);
 });
+
